@@ -1,10 +1,47 @@
-# Instagram Chat Assistant
+# IG Assistant
 
-Local Instagram Direct assistant with:
+IG Assistant is a local-first writing assistant for Instagram Direct messages. It adds a small draggable assistant panel to Instagram Web, sends your draft to a local Python API, asks your configured LLM to correct or improve it, and then inserts/sends the result back into the active Instagram chat.
 
-- A Python FastAPI backend that calls an OpenAI-compatible LLM provider.
-- A Chrome Manifest V3 extension injected into Instagram.
-- Autocomplete/correction for your draft, with local backend config, logs, and metrics pages.
+The project is designed for people who want AI help while keeping control over the model, prompt rules, logs, and runtime behavior.
+
+## Highlights
+
+- Chrome extension for Instagram Web DMs.
+- Local FastAPI backend running on `127.0.0.1`.
+- OpenAI-compatible LLM support, including DeepSeek.
+- Runtime LLM config page for provider, base URL, model, API key, and custom prompt rules.
+- Autocomplete/correction while typing.
+- Keyboard-first send flow:
+  - `Enter`: send the autocomplete/suggested version.
+  - `Ctrl+Enter`: send the raw draft/untranslated version.
+  - `Shift+Enter`: insert a newline.
+- Quote-preservation rule: text inside double quotes is preserved exactly.
+- Recent-message detection with local regex filtering for timestamps, statuses, attachment notices, and UI noise.
+- Backend logs UI and LLM latency metrics dashboard.
+- Cross-platform installer for Windows and macOS.
+
+## How It Works
+
+```text
+Instagram Web
+  -> Chrome extension content script
+  -> Extension background worker
+  -> Local FastAPI server at 127.0.0.1:8765
+  -> OpenAI-compatible LLM provider
+```
+
+The extension never calls the LLM provider directly. Browser-to-localhost calls are proxied through the extension background worker to avoid Chrome private-network restrictions on Instagram pages.
+
+## Screens and Backend Tools
+
+After starting the backend:
+
+- Config: `http://127.0.0.1:8765/config`
+- Logs: `http://127.0.0.1:8765/logs`
+- Metrics: `http://127.0.0.1:8765/metrics`
+- Health: `http://127.0.0.1:8765/health`
+
+The metrics dashboard shows LLM request count, success/failure count, average latency, p95 latency, model, provider, input/output size, and error details.
 
 ## Install
 
@@ -14,7 +51,7 @@ Local Instagram Direct assistant with:
 .\install.ps1
 ```
 
-If PowerShell blocks local scripts, run:
+If PowerShell blocks local scripts:
 
 ```powershell
 python install.py
@@ -27,19 +64,7 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer:
-
-- creates `.venv` at the project root
-- installs `server/requirements.txt`
-- creates `server/.env` if missing
-- creates `run_server.ps1` and `run_server.sh`
-- prints the Chrome extension folder to load
-
-To recreate the virtualenv:
-
-```bash
-python install.py --force-venv
-```
+The installer creates `.venv`, installs backend dependencies, creates `server/.env` if missing, and writes platform-specific server launch scripts.
 
 ## Start Backend
 
@@ -55,82 +80,152 @@ macOS:
 ./run_server.sh
 ```
 
-Backend pages:
+Then open:
 
-- Config: `http://127.0.0.1:8765/config`
-- Logs: `http://127.0.0.1:8765/logs`
-- Metrics: `http://127.0.0.1:8765/metrics`
-- Health: `http://127.0.0.1:8765/health`
+```text
+http://127.0.0.1:8765/config
+```
 
-Use the Config page to set provider, API key, model, base URL, and custom autocomplete rules.
+Set your LLM provider, API key, model, and base URL.
 
-For DeepSeek, typical settings are:
+### DeepSeek Example
 
 ```text
 Provider: DeepSeek
 API mode: Chat Completions
 Base URL: https://api.deepseek.com
 Model: deepseek-v4-flash or deepseek-v4-pro
-Thinking: disabled for fastest autocomplete
+Thinking: disabled for faster autocomplete
 ```
 
 ## Load Chrome Extension
 
-Chrome does not allow a normal script to silently install an unpacked extension into your regular profile. Load it once manually:
+Chrome does not allow a script to silently install an unpacked extension into a normal user profile. Load it once manually:
 
 1. Open `chrome://extensions`.
 2. Enable `Developer mode`.
 3. Click `Load unpacked`.
-4. Select the `extension` folder in this project.
+4. Select the `extension` folder in this repo.
 5. Open an Instagram Direct conversation.
 
-The extension panel displays its current version in the title.
+The assistant panel shows its extension version in the title.
 
-## Use
+## Usage
 
-- Type a draft in the extension draft box.
-- The autocomplete suggestion appears in the highlighted suggestion box.
-- `Enter`: send the autocomplete/suggestion version.
-- `Ctrl+Enter`: send the raw draft/untranslated version.
-- `Shift+Enter`: insert a newline in the draft box.
+1. Open an Instagram DM conversation.
+2. Type a draft in the IG Assistant panel.
+3. Edit the highlighted autocomplete result if needed.
+4. Press `Enter` to send the suggested version.
+5. Press `Ctrl+Enter` to send your raw draft instead.
 
-Quoted text inside double quotes is preserved by the backend prompt and should not be translated or rewritten.
+Use the `Backend` button in the extension panel to open the local backend UI. Use `Debug` to inspect extension-side activity.
+
+## Custom Rules
+
+Open the config page and edit the correction/autocomplete rule. This rule is injected into the prompt for every autocomplete request.
+
+Built-in behavior includes:
+
+- Preserve casual Instagram DM tone.
+- Correct spelling, grammar, syntax, punctuation, and wording.
+- Use the latest received message as private context.
+- Preserve text inside double quotes exactly.
+- Return only one reply message, with no labels or explanations.
+
+## Privacy and Safety
+
+- Instagram page content is read by the local extension only for the active browser session.
+- Drafts and the latest detected received message are sent to your local backend.
+- The backend sends prompt content to the LLM provider you configure.
+- API keys are stored locally in `server/llm_config.json`, which is ignored by git.
+- Runtime files such as `.env`, logs, `.venv`, and local Chrome profile data are ignored by git.
 
 ## Troubleshooting
 
-- Open `http://127.0.0.1:8765/health` to verify the backend is running.
-- Open `http://127.0.0.1:8765/logs` for backend logs.
-- Open `http://127.0.0.1:8765/metrics` for LLM request count and latency.
-- Click `Debug` in the extension panel for extension-side logs.
-- Open Chrome DevTools on Instagram and check Console logs prefixed with `[IGCA]`.
+Check backend health:
 
-Raw server logs are written to:
+```text
+http://127.0.0.1:8765/health
+```
+
+Open backend logs:
+
+```text
+http://127.0.0.1:8765/logs
+```
+
+Open LLM metrics:
+
+```text
+http://127.0.0.1:8765/metrics
+```
+
+Raw log files:
 
 ```text
 server/uvicorn.err.log
 server/uvicorn.out.log
 ```
 
-Useful PowerShell command:
+Windows:
 
 ```powershell
 Get-Content server\uvicorn.err.log -Tail 80 -Wait
 ```
 
-Useful macOS command:
+macOS:
 
 ```bash
 tail -f server/uvicorn.err.log
 ```
 
-## Backend Structure
+Extension-side debugging:
 
-- `server/main.py` is the uvicorn entry point.
-- `server/app/factory.py` wires FastAPI, middleware, CORS, and routers.
-- `server/app/routers/` contains HTTP route handlers.
-- `server/app/services/` contains autocomplete/rewrite behavior.
-- `server/app/config_store.py` owns persisted LLM settings.
-- `server/app/llm_client.py` owns OpenAI-compatible LLM calls.
-- `server/app/metrics_store.py` stores in-memory LLM latency metrics.
-- `server/app/logging_config.py` owns in-memory backend log capture.
-- `server/app/pages.py` contains local config/log/metrics HTML pages.
+- Click `Debug` in the assistant panel.
+- Open Chrome DevTools on Instagram and inspect Console logs prefixed with `[IGCA]`.
+
+## Project Structure
+
+```text
+extension/
+  background.js      Chrome background worker and local API proxy
+  content.js         Instagram UI injection, session detection, autocomplete flow
+  content.css        Assistant panel styles
+  manifest.json      Chrome Manifest V3 config
+
+server/
+  main.py            Uvicorn entry point
+  app/
+    factory.py       FastAPI app setup, middleware, routers
+    llm_client.py    OpenAI-compatible LLM client and metrics recording
+    config_store.py  Runtime LLM config persistence
+    metrics_store.py In-memory LLM metrics
+    pages.py         Local HTML pages for config/logs/metrics
+    routers/         API routes
+    services/        Autocomplete and rewrite prompt logic
+```
+
+## Development
+
+Validate backend syntax:
+
+```bash
+python -m compileall -q server
+```
+
+Validate extension JavaScript:
+
+```bash
+node --check extension/content.js
+node --check extension/background.js
+```
+
+Run backend manually:
+
+```bash
+python -m uvicorn server.main:app --host 127.0.0.1 --port 8765 --log-level info
+```
+
+## Status
+
+This is a local productivity tool, not an official Instagram product. Instagram Web DOM structure changes can break selectors, so extension debug logs and backend metrics are included to make troubleshooting practical.
