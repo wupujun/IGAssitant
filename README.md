@@ -1,8 +1,8 @@
 # IG Assistant
 
-IG Assistant is a local-first writing assistant for Instagram Direct messages. It adds a small draggable assistant panel to Instagram Web, sends your draft to a local Python API, asks your configured LLM to correct or improve it, and then inserts/sends the result back into the active Instagram chat.
+IG Assistant is a local-first writing assistant for personal Instagram Direct messages. It adds a small draggable assistant panel to Instagram Web, sends your draft to a local Python API, asks your configured LLM to correct or improve it, and gives you an editable suggestion before anything is sent.
 
-The project is designed for people who want AI help while keeping control over the model, prompt rules, logs, and runtime behavior.
+The project is designed for **personal, human-in-the-loop writing help**. You stay in control of the message, the model, prompt rules, logs, and runtime behavior.
 
 ## Highlights
 
@@ -11,7 +11,8 @@ The project is designed for people who want AI help while keeping control over t
 - OpenAI-compatible LLM support, including DeepSeek.
 - Runtime LLM config page for provider, base URL, model, API key, and custom prompt rules.
 - Autocomplete/correction while typing.
-- Keyboard-first send flow:
+- Human-in-the-loop editing: the suggestion is shown in an editable box before sending.
+- Keyboard-first personal reply flow:
   - `Enter`: send the autocomplete/suggested version.
   - `Ctrl+Enter`: send the raw draft/untranslated version.
   - `Shift+Enter`: insert a newline.
@@ -19,6 +20,7 @@ The project is designed for people who want AI help while keeping control over t
 - Recent-message detection with local regex filtering for timestamps, statuses, attachment notices, and UI noise.
 - Backend logs UI and LLM latency metrics dashboard.
 - Cross-platform installer for Windows and macOS.
+- No bulk messaging, lead scraping, follower scraping, or campaign automation features.
 
 ## How It Works
 
@@ -31,6 +33,8 @@ Instagram Web
 ```
 
 The extension never calls the LLM provider directly. Browser-to-localhost calls are proxied through the extension background worker to avoid Chrome private-network restrictions on Instagram pages.
+
+The extension is intended to operate on the currently open conversation only. It is not designed to crawl profiles, scrape followers, scan inboxes in bulk, or run unattended outreach.
 
 ## Screens and Backend Tools
 
@@ -110,6 +114,28 @@ Chrome does not allow a script to silently install an unpacked extension into a 
 
 The assistant panel shows its extension version in the title.
 
+## Responsible Use
+
+This project is a personal writing assistant, not a growth bot or outreach automation tool.
+
+Use it for:
+
+- correcting your own draft before replying
+- making a personal reply clearer or more natural
+- translating or refining a message you intend to review
+- learning from the suggested wording before you send
+
+Do not use it for:
+
+- bulk outbound DMs
+- unsolicited outreach campaigns
+- repeated identical messages
+- scraping profiles, followers, or chat history
+- running unattended auto-replies
+- evading Instagram limits or enforcement
+
+High-volume or spam-like DM behavior can put an Instagram account at risk. Keep usage personal, low-volume, and reviewed by a human.
+
 ## Usage
 
 1. Open an Instagram DM conversation.
@@ -119,6 +145,8 @@ The assistant panel shows its extension version in the title.
 5. Press `Ctrl+Enter` to send your raw draft instead.
 
 Use the `Backend` button in the extension panel to open the local backend UI. Use `Debug` to inspect extension-side activity.
+
+For the lowest-risk workflow, use the assistant as a drafting tool: review the suggestion, make edits, and only send messages you would personally send yourself.
 
 ## Custom Rules
 
@@ -139,6 +167,7 @@ Built-in behavior includes:
 - The backend sends prompt content to the LLM provider you configure.
 - API keys are stored locally in `server/llm_config.json`, which is ignored by git.
 - Runtime files such as `.env`, logs, `.venv`, and local Chrome profile data are ignored by git.
+- The tool is intended for personal, human-reviewed messages rather than automated messaging.
 
 ## Troubleshooting
 
@@ -228,4 +257,6 @@ python -m uvicorn server.main:app --host 127.0.0.1 --port 8765 --log-level info
 
 ## Status
 
-This is a local productivity tool, not an official Instagram product. Instagram Web DOM structure changes can break selectors, so extension debug logs and backend metrics are included to make troubleshooting practical.
+This is a local personal productivity tool, not an official Instagram product. Instagram Web DOM structure changes can break selectors, so extension debug logs and backend metrics are included to make troubleshooting practical.
+
+The project should not be used for spam, bulk messaging, scraping, or unattended automation.
