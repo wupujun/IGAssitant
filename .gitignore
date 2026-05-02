@@ -6,3 +6,4 @@ __pycache__/
 node_modules/
 *.log
 server/llm_config.json
+server/data/
