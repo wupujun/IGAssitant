@@ -16,16 +16,16 @@ Install:
 
 - Google Chrome
 - Python 3.10 or newer
-- Git
+- Terminal access
+- Git is optional
 
 Check from Terminal:
 
 ```bash
 python3 --version
-git --version
 ```
 
-If Python or Git is missing, install Xcode Command Line Tools:
+If Python is missing, install Xcode Command Line Tools:
 
 ```bash
 xcode-select --install
@@ -39,6 +39,32 @@ https://www.python.org/downloads/macos/
 
 ### 2. Download v1.0
 
+You do not need Git. Download the release ZIP:
+
+```text
+https://github.com/wupujun/IGAssitant/archive/refs/tags/v1.0.zip
+```
+
+Then:
+
+1. Open the ZIP file from Downloads.
+2. Rename the extracted folder from `IGAssitant-1.0` to `IGAssitant`.
+3. Move it to `Documents`.
+
+Your project folder should be:
+
+```text
+~/Documents/IGAssitant
+```
+
+Open Terminal and enter the project folder:
+
+```bash
+cd ~/Documents/IGAssitant
+```
+
+Optional Git method:
+
 ```bash
 cd ~/Documents
 git clone https://github.com/wupujun/IGAssitant.git
@@ -46,7 +72,7 @@ cd IGAssitant
 git checkout v1.0
 ```
 
-Confirm the version:
+If you used Git, confirm the version:
 
 ```bash
 git describe --tags
@@ -182,16 +208,16 @@ https://github.com/wupujun/IGAssitant
 
 - Google Chrome
 - Python 3.10 或更新版本
-- Git
+- 可以使用 Terminal
+- Git 是可选的，不是必须
 
 在 Terminal 中检查：
 
 ```bash
 python3 --version
-git --version
 ```
 
-如果没有 Python 或 Git，可以先安装 Xcode Command Line Tools：
+如果没有 Python，可以先安装 Xcode Command Line Tools：
 
 ```bash
 xcode-select --install
@@ -205,6 +231,32 @@ https://www.python.org/downloads/macos/
 
 ### 2. 下载 v1.0 版本
 
+不需要安装 Git。直接下载 release ZIP：
+
+```text
+https://github.com/wupujun/IGAssitant/archive/refs/tags/v1.0.zip
+```
+
+然后：
+
+1. 打开 Downloads 里的 ZIP 文件。
+2. 把解压出来的文件夹从 `IGAssitant-1.0` 改名为 `IGAssitant`。
+3. 把这个文件夹移动到 `Documents`。
+
+最终项目目录应该是：
+
+```text
+~/Documents/IGAssitant
+```
+
+打开 Terminal，进入项目目录：
+
+```bash
+cd ~/Documents/IGAssitant
+```
+
+如果你想用 Git，也可以使用下面的方式：
+
 ```bash
 cd ~/Documents
 git clone https://github.com/wupujun/IGAssitant.git
@@ -212,7 +264,7 @@ cd IGAssitant
 git checkout v1.0
 ```
 
-确认当前版本：
+如果使用 Git，可以确认当前版本：
 
 ```bash
 git describe --tags
