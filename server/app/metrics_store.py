@@ -3,7 +3,6 @@ from datetime import datetime
 from threading import Lock
 from typing import Any
 
-
 LLM_METRICS_LIMIT = 1000
 LLM_METRICS: deque[dict[str, Any]] = deque(maxlen=LLM_METRICS_LIMIT)
 _METRICS_LOCK = Lock()

@@ -1,10 +1,9 @@
 import logging
 import time
 
-from ..llm_client import create_llm_text
 from ..config_store import llm_config
+from ..llm_client import create_llm_text
 from ..models import AutocompleteResponse, ChatHistoryItem
-
 
 logger = logging.getLogger("ig-chat-assistant")
 

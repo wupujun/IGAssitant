@@ -1,16 +1,32 @@
 (() => {
-  const API_BASE = "http://127.0.0.1:8765";
-  const AUTOCOMPLETE_URL = `${API_BASE}/autocomplete`;
-  const CONFIG_URL = `${API_BASE}/config`;
-  const HEALTH_URL = `${API_BASE}/health`;
   const ROOT_ID = "igca-root";
-  const VERSION = "0.3.13";
+  const VERSION = "0.3.15";
   const POSITION_KEY = "igca-panel-position";
   const SESSIONS_KEY = "igca-conversation-sessions";
   const HISTORY_LIMIT_KEY = "igca-history-limit";
-  const DEFAULT_HISTORY_LIMIT = 10;
   const DEBUG_LIMIT = 80;
   const HEARTBEAT_MS = 30000;
+  const {
+    DEFAULT_HISTORY_LIMIT,
+    clampHistoryLimit,
+    slugifySession,
+    normalizePartnerName,
+    normalizeMessageText,
+    isConversationNoise,
+    normalizeHistoryItem,
+    mergeMessageHistory: mergeHistoryItems,
+    formatMessageHistory: formatHistoryItems,
+  } = window.IGCAHistory;
+  const {
+    API_BASE,
+    AUTOCOMPLETE_URL,
+    CONFIG_URL,
+    HEALTH_URL,
+    apiFetch,
+  } = window.IGCAApiClient;
+  const { createSessionStore } = window.IGCASessionStore;
+  const { createDomSelectors } = window.IGCADomSelectors;
+  const { createDebugLogger } = window.IGCADebugLog;
 
   if (window.__igcaLoaded) return;
   window.__igcaLoaded = true;
@@ -22,7 +38,6 @@
   let messageHistory = [];
   let currentSessionId = "unknown";
   let currentSessionName = "Unknown chat";
-  let historyLimit = loadHistoryLimit();
   let lastPathname = "";
   let autocompleteTimer = 0;
   let autocompleteRequestId = 0;
@@ -32,8 +47,25 @@
   let apiOnline = false;
   let heartbeatCount = 0;
   let dragState = null;
-  const debugEntries = [];
-  const sessions = loadSessions();
+  const debugLogger = createDebugLogger({
+    rootId: ROOT_ID,
+    limit: DEBUG_LIMIT,
+  });
+  const sessionStore = createSessionStore({
+    storage: localStorage,
+    sessionsKey: SESSIONS_KEY,
+    historyLimitKey: HISTORY_LIMIT_KEY,
+    defaultHistoryLimit: DEFAULT_HISTORY_LIMIT,
+    clampHistoryLimit,
+  });
+  const { sessions } = sessionStore;
+  const domSelectors = createDomSelectors({
+    rootId: ROOT_ID,
+    debug,
+    normalizeMessageText,
+    isConversationNoise,
+  });
+  let historyLimit = loadHistoryLimit();
 
   function createElement(tag, className, text) {
     const element = document.createElement(tag);
@@ -43,95 +75,22 @@
   }
 
   function debug(message, details = {}) {
-    const entry = {
-      time: new Date().toLocaleTimeString(),
-      message,
-      details,
-    };
-    debugEntries.push(entry);
-    if (debugEntries.length > DEBUG_LIMIT) debugEntries.shift();
-    console.debug("[IGCA]", message, details);
-
-    const log = document.querySelector(`#${ROOT_ID} .igca-debug-log`);
-    if (!log) return;
-    log.textContent = debugEntries
-      .slice(-12)
-      .map((item) => {
-        const detailText = Object.keys(item.details).length ? ` ${JSON.stringify(item.details)}` : "";
-        return `${item.time} ${item.message}${detailText}`;
-      })
-      .join("\n");
-    log.scrollTop = log.scrollHeight;
+    debugLogger.debug(message, details);
   }
 
   debug("content script loaded", { version: VERSION, path: location.pathname });
 
-  function apiFetch(url, options = {}) {
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(
-        {
-          type: "igca-api-fetch",
-          url,
-          options,
-        },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message));
-            return;
-          }
-          if (!response) {
-            reject(new Error("No response from extension background worker."));
-            return;
-          }
-          resolve(response);
-        },
-      );
-    });
-  }
-
-  function loadSessions() {
-    try {
-      return JSON.parse(localStorage.getItem(SESSIONS_KEY) || "{}");
-    } catch {
-      return {};
-    }
-  }
-
   function saveSessions() {
-    localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions));
+    sessionStore.saveSessions();
   }
 
   function loadHistoryLimit() {
-    const value = Number(localStorage.getItem(HISTORY_LIMIT_KEY));
-    if (!Number.isFinite(value)) return DEFAULT_HISTORY_LIMIT;
-    return Math.min(200, Math.max(5, Math.round(value)));
+    return sessionStore.loadHistoryLimit();
   }
 
   function saveHistoryLimit(value) {
-    historyLimit = Math.min(200, Math.max(5, Math.round(Number(value) || DEFAULT_HISTORY_LIMIT)));
-    localStorage.setItem(HISTORY_LIMIT_KEY, String(historyLimit));
-    Object.values(sessions).forEach((session) => {
-      session.messageHistory = (session.messageHistory || []).slice(-historyLimit);
-    });
-    saveSessions();
+    historyLimit = sessionStore.saveHistoryLimit(value);
     debug("history limit saved", { historyLimit });
-  }
-
-  function slugifySession(value) {
-    return (value || "unknown")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 80) || "unknown";
-  }
-
-  function normalizePartnerName(value) {
-    const parts = (value || "")
-      .split(/\n|\s{2,}/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .filter((part) => !/^(instagram|active|active\s+\d+|message|messages|send|switch|follow|following|see all|online|home|search|explore|reels|notifications|profile)$/i.test(part));
-    return (parts[0] || value || "Unknown chat").trim().slice(0, 80);
   }
 
   function candidatePartnerNameFromElement(element) {
@@ -172,20 +131,7 @@
   }
 
   function ensureSession(sessionId, sessionName) {
-    if (!sessions[sessionId]) {
-      sessions[sessionId] = {
-        id: sessionId,
-        name: sessionName,
-        draftText: "",
-        lastPartnerMessage: "",
-        messageHistory: [],
-        lastSuggestion: "",
-        selectedStyle: "ig",
-        updatedAt: Date.now(),
-      };
-    }
-    sessions[sessionId].name = sessionName;
-    return sessions[sessionId];
+    return sessionStore.ensureSession(sessionId, sessionName);
   }
 
   function persistCurrentSession() {
@@ -294,166 +240,39 @@
   }
 
   function getComposer() {
-    const candidates = [
-      'div[contenteditable="true"][aria-label*="Message" i]',
-      'div[contenteditable="true"][data-lexical-editor="true"]',
-      'div[contenteditable="true"][role="textbox"]',
-      'div[contenteditable="true"][aria-label]',
-      'textarea',
-    ];
-
-    for (const selector of candidates) {
-      const elements = [...document.querySelectorAll(selector)];
-      const visible = elements
-        .filter((element) => element.offsetParent !== null)
-        .filter((element) => !element.closest(`#${ROOT_ID}`));
-      if (visible.length) {
-        debug("composer found", { selector, count: visible.length });
-        return visible[visible.length - 1];
-      }
-    }
-
-    debug("composer not found");
-    return null;
+    return domSelectors.getComposer();
   }
 
   function getChatSurface(composer = getComposer()) {
-    if (!composer) return document;
-
-    let current = composer.parentElement;
-    let best = null;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (current.id === ROOT_ID) {
-        current = current.parentElement;
-        continue;
-      }
-      const rect = current.getBoundingClientRect();
-      const looksLikeFloatingChat =
-        rect.width >= 280 &&
-        rect.width <= 620 &&
-        rect.height >= 260 &&
-        rect.height <= window.innerHeight &&
-        rect.right > window.innerWidth * 0.45;
-      const looksLikeDirectPane =
-        location.pathname.startsWith("/direct/") &&
-        rect.width >= 320 &&
-        rect.height >= 360;
-
-      if (looksLikeFloatingChat || looksLikeDirectPane) {
-        best = current;
-      }
-      current = current.parentElement;
-    }
-
-    return best || document;
+    return domSelectors.getChatSurface(composer);
   }
 
   function hasActiveChat() {
-    return Boolean(getComposer());
+    return domSelectors.hasActiveChat();
   }
 
   function shouldRenderAssistant() {
-    return location.pathname.startsWith("/direct/") || hasActiveChat();
+    return domSelectors.shouldRenderAssistant();
   }
 
   function classifyMessageElement(element) {
-    const text = normalizeMessageText(element.innerText || element.textContent || "");
-    if (text) return text;
-    if (element.querySelector("img")) return "img";
-    if (element.querySelector("a[href]")) return "link";
-    if (element.querySelector("video")) return "video";
-    if (element.querySelector("audio")) return "audio";
-    return "";
-  }
-
-  function normalizeMessageText(text) {
-    return (text || "")
-      .replace(/[\u00a0\u202f]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function isConversationNoise(text) {
-    const value = normalizeMessageText(text).toLowerCase();
-    if (!value) return true;
-    return (
-      /^(seen|sent|delivered|read)(\s+\d+\s*(sec|secs|second|seconds|min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks|mo|month|months|y|yr|yrs|year|years|s|m|h)\s*ago)?$/i.test(value) ||
-      /^(mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s+\d{1,2}:\d{2}\s*(am|pm)$/i.test(value) ||
-      /^(yesterday|today)\s+\d{1,2}:\d{2}\s*(am|pm)$/i.test(value) ||
-      /^\d{1,2}:\d{2}\s*(am|pm)$/i.test(value) ||
-      /^\d+\s*(sec|secs|second|seconds|min|mins|minute|minutes|hr|hrs|hour|hours|d|day|days|w|week|weeks|mo|month|months|y|yr|yrs|year|years|s|m|h)\s*ago$/i.test(value) ||
-      /^(active|active\s+\d+\s*(m|h|d|min|mins|hr|hrs|day|days)\s*ago)$/i.test(value) ||
-      /^[a-z]{3}\s+\d{1,2}:\d{2}\s*(am|pm)$/i.test(value) ||
-      /^notifications?:/i.test(value) ||
-      /^.+\s+sent an attachment\.?$/i.test(value) ||
-      /^[a-z0-9._-]{3,40}$/i.test(value) && /[._]|\d/.test(value)
-    );
-  }
-
-  function normalizeHistoryItem(item) {
-    const role = item?.role === "me" ? "me" : "partner";
-    const content = normalizeMessageText(item?.content || "");
-    if (!content || isConversationNoise(content)) return null;
-    return { role, content };
+    return domSelectors.classifyMessageElement(element);
   }
 
   function elementLooksLikeMessageBubble(element, content) {
-    if (isConversationNoise(content)) return false;
-    const rect = element.getBoundingClientRect();
-    const parentText = normalizeMessageText(element.parentElement?.innerText || "");
-    if (parentText && parentText !== content && isConversationNoise(parentText)) return false;
-    if (rect.height < 12 || rect.width < 16) return false;
-    return true;
+    return domSelectors.elementLooksLikeMessageBubble(element, content);
   }
 
   function getThreadGeometry() {
-    const composer = getComposer();
-    const surface = getChatSurface(composer);
-    if (!composer) {
-      return {
-        left: 0,
-        right: window.innerWidth,
-        center: window.innerWidth / 2,
-        bottom: window.innerHeight,
-      };
-    }
-
-    const rect = composer.getBoundingClientRect();
-    const surfaceRect = surface === document
-      ? { left: 0, right: window.innerWidth }
-      : surface.getBoundingClientRect();
-    return {
-      left: Math.max(0, surfaceRect.left),
-      right: Math.min(window.innerWidth, surfaceRect.right),
-      center: surfaceRect.left + (surfaceRect.right - surfaceRect.left) / 2,
-      bottom: rect.top,
-    };
+    return domSelectors.getThreadGeometry();
   }
 
   function isIncomingMessageCandidate(element, thread) {
-    if (element.closest(`#${ROOT_ID}`)) return false;
-    if (element.closest('[contenteditable="true"]')) return false;
-    if (element.closest("button, nav, header, footer")) return false;
-
-    const rect = element.getBoundingClientRect();
-    if (rect.width < 8 || rect.height < 8) return false;
-    if (rect.bottom > thread.bottom - 6) return false;
-    if (rect.right < thread.left || rect.left > thread.right) return false;
-
-    const center = rect.left + rect.width / 2;
-    return center < thread.center;
+    return domSelectors.isIncomingMessageCandidate(element, thread);
   }
 
   function isMessageCandidate(element, thread) {
-    if (element.closest(`#${ROOT_ID}`)) return false;
-    if (element.closest('[contenteditable="true"]')) return false;
-    if (element.closest("button, nav, header, footer")) return false;
-
-    const rect = element.getBoundingClientRect();
-    if (rect.width < 8 || rect.height < 8) return false;
-    if (rect.bottom > thread.bottom - 6) return false;
-    if (rect.right < thread.left || rect.left > thread.right) return false;
-    return true;
+    return domSelectors.isMessageCandidate(element, thread);
   }
 
   function getVisibleMessageHistory() {
@@ -490,22 +309,11 @@
   }
 
   function mergeMessageHistory(existing, visible) {
-    const merged = (existing || []).map(normalizeHistoryItem).filter(Boolean);
-    visible.forEach((item) => {
-      const normalized = normalizeHistoryItem(item);
-      if (!normalized) return;
-      const previous = merged.at(-1);
-      if (previous?.role === normalized.role && previous?.content === normalized.content) return;
-      if (merged.some((entry) => entry.role === normalized.role && entry.content === normalized.content)) return;
-      merged.push(normalized);
-    });
-    return merged.slice(-historyLimit);
+    return mergeHistoryItems(existing, visible, historyLimit);
   }
 
   function formatMessageHistory() {
-    return messageHistory
-      .map((item) => `${item.role === "partner" ? "Partner" : "Me"}: ${item.content}`)
-      .join("\n") || "No message history found.";
+    return formatHistoryItems(messageHistory);
   }
 
   function applyCleanedHistory(root, cleanedHistory) {
@@ -650,11 +458,12 @@
       const time = new Date().toLocaleTimeString();
       setStatus(root, `API online - ${keyState} - ${data.model || "model unknown"} - ${heartbeatLabel} at ${time}`, "ok");
       debug("health request ok", { status: response.status, model: data.model, openaiConfigured: data.openai_configured, via: "background" });
-    } catch {
+    } catch (error) {
       apiOnline = false;
       const time = new Date().toLocaleTimeString();
+      const reason = error.message || "unknown error";
       setStatus(root, `API offline - ${heartbeatLabel} failed at ${time} - ${API_BASE}`, "error");
-      debug("health request failed", { apiBase: API_BASE, heartbeat: heartbeatCount });
+      debug("health request failed", { apiBase: API_BASE, heartbeat: heartbeatCount, reason });
     }
   }
 
