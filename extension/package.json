@@ -1,0 +1,13 @@
+{
+  "name": "ig-chat-assistant-extension-tests",
+  "private": true,
+  "scripts": {
+    "test:smoke": "playwright test",
+    "test:unit": "node --test tests/*.test.js",
+    "check": "node --check apiClient.js && node --check debugLog.js && node --check domSelectors.js && node --check history.js && node --check sessionStore.js && node --check content.js && node --check background.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0"
+  }
+}
+

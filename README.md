@@ -236,17 +236,48 @@ server/
 
 ## Development
 
+Install development dependencies:
+
+```bash
+python -m pip install -r server/requirements-dev.txt
+```
+
 Validate backend syntax:
 
 ```bash
 python -m compileall -q server
 ```
 
+Run backend tests:
+
+```bash
+python -m pytest
+```
+
+Lint backend code:
+
+```bash
+python -m ruff check server tests
+```
+
 Validate extension JavaScript:
 
 ```bash
+node --check extension/apiClient.js
+node --check extension/debugLog.js
+node --check extension/domSelectors.js
+node --check extension/history.js
+node --check extension/sessionStore.js
 node --check extension/content.js
 node --check extension/background.js
+node --test extension/tests/*.test.js
+npm run test:smoke --prefix extension
+```
+
+Run the full local quality gate on systems with `make`:
+
+```bash
+make ci
 ```
 
 Run backend manually:

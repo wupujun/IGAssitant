@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>IG Assistant Fixture</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+      }
+
+      .chat {
+        width: 420px;
+        height: 640px;
+        margin-left: auto;
+        padding: 24px;
+      }
+
+      .messages {
+        height: 520px;
+      }
+
+      .message {
+        width: 180px;
+        min-height: 24px;
+        margin: 16px 0;
+      }
+
+      .partner {
+        margin-right: auto;
+      }
+
+      .me {
+        margin-left: auto;
+      }
+
+      [contenteditable="true"] {
+        min-height: 36px;
+        border: 1px solid #ccc;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="chat">
+      <header>
+        <h1>Jane Doe</h1>
+      </header>
+      <section class="messages">
+        <div class="message partner" dir="auto">hey are you free later?</div>
+        <div class="message me" dir="auto">maybe</div>
+      </section>
+      <div role="textbox" contenteditable="true" aria-label="Message"></div>
+      <button type="button">Send</button>
+    </main>
+    <script>
+      window.chrome = {
+        runtime: {
+          lastError: null,
+          sendMessage(message, callback) {
+            if (message.url.endsWith("/health")) {
+              callback({
+                ok: true,
+                status: 200,
+                data: {
+                  status: "ok",
+                  model: "fixture-model",
+                  openai_configured: true
+                }
+              });
+              return;
+            }
+            callback({
+              ok: true,
+              status: 200,
+              data: {
+                suggestion: "fixture suggestion"
+              }
+            });
+          }
+        }
+      };
+    </script>
+    <script src="../../history.js"></script>
+    <script src="../../sessionStore.js"></script>
+    <script src="../../apiClient.js"></script>
+    <script src="../../domSelectors.js"></script>
+    <script src="../../debugLog.js"></script>
+    <script src="../../content.js"></script>
+  </body>
+</html>
+

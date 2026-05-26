@@ -1,9 +1,14 @@
 __pycache__/
 *.py[cod]
+.pytest_cache/
+.ruff_cache/
+.tmp-*/
 .env
 .venv/
 .chrome-profile/
 node_modules/
+test-results/
+extension/test-results/
 *.log
 server/llm_config.json
 server/data/
